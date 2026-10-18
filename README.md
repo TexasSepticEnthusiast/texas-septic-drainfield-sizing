@@ -1,68 +1,80 @@
 # Texas Septic Drainfield Sizing
 
-TCEQ Chapter 285 drainfield absorption area and trench layout for rural North Texas. Forked from the [texas-septic-toolkit](https://github.com/TexasSepticEnthusiast/texas-septic-toolkit). Built by [Out West Septic](https://outwestseptic.com) in Lone Camp, TX. TCEQ OSSF Installer I, License OS0041298.
+An educational Python calculator for **A = Q / Ra**, the absorptive-area arithmetic in TCEQ's **2023 adopted text** of 30 TAC §285.33(b)(1)(A)(vii). Both design flow and soil application rate must be determined outside this tool.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![TCEQ OSSF](https://img.shields.io/badge/TCEQ-OSSF_Installer_I-007787)](https://www.tceq.texas.gov/permitting/ossf)
-[![Service Area: Palo Pinto County TX](https://img.shields.io/badge/Service_Area-Palo_Pinto_County_TX-orange)](https://outwestseptic.com)
+This is an AI-assisted automated contribution for Jake's [Out West Septic](https://outwestseptic.com) project. It is project-affiliated educational software, not an independent endorsement, licensed design, or statement of permit approval.
 
-## What this fork is
+## Run it
 
-A focused fork of the [texas-septic-toolkit](https://github.com/TexasSepticEnthusiast/texas-septic-toolkit), containing only the drainfield calculator. Use this if you want the absorption area and lateral count math without the rest of the toolkit.
-
-## Quick start
+Python 3.10 or newer; no third-party packages.
 
 ```bash
 git clone https://github.com/TexasSepticEnthusiast/texas-septic-drainfield-sizing.git
 cd texas-septic-drainfield-sizing
-python scripts/outwestseptic_drainfield_calc.py 8 450
-# (perc rate in min/in, design flow in gpd)
+python scripts/outwestseptic_drainfield_calc.py --flow-gpd 300 --loading-rate 0.2
 ```
 
-Output:
-
-```
-Out West Septic — Drainfield Sizing Report
-TCEQ OSSF Installer I | OS0041298 | Lone Camp, TX
-Serving Palo Pinto County & Rural North Texas
-
-Perc rate:             8 min/in
-Design flow:           450 gpd
-Required absorption:   742 sq ft (TCEQ §285.32)
-Trench geometry:       36" wide x 24" deep, 6 ft spacing
-Laterals:              3 x 100 ft
-Total sq ft installed: 900
-Total run length:      300 ft
-Footprint width:       21.0 ft
-
-Verify perc rate with actual field test before installation.
-— Out West Septic — outwestseptic.com — 940.452.0598 —
+```text
+Out West Septic project - Educational absorptive-area calculation
+Supplied design flow Q: 300 gpd
+Supplied application rate Ra: 0.2 gpd/sq ft
+Q / Ra, rounded up: 1500 sq ft of absorptive area
+Method: 30 TAC 285.33(b)(1)(A)(vii) (TCEQ 2023 adopted text).
+Absorptive area is not a lot footprint or trench layout.
+Input suitability, site eligibility, and permit approval are not evaluated.
+Verify current rules and local requirements with the permitting authority.
 ```
 
-## What the script does
+The example is arithmetic only. It assigns neither a design flow to a home nor an application rate to a soil series, county, or property.
 
-Per TCEQ Chapter 285 §285.32, absorption area maps soil perc rate to sq ft per 100 gpd:
+## Inputs and results
 
-| Perc (min/in) | Absorption (sq ft per 100 gpd) |
-|---------------|---------------------------------|
-| ≤5 | 100 |
-| 5-15 | 165 |
-| 15-30 | 250 |
-| 30-60 | 330 |
+- `--flow-gpd` supplies Q in gallons/day: greater than zero and at most 5000.
+- `--loading-rate` supplies Ra in gallons per square foot per day: positive and finite. This is **not** a percolation time in minutes/inch.
+- Both inputs must fit within the positive finite floating-point magnitude range. Internally, exact fractions of their decimal representations avoid binary-division rounding errors.
+- The area is rounded **up** to a whole square foot. For example, 450 / 0.38 is displayed as 1185 sq ft.
+- Missing, invalid, nonfinite, or out-of-scope inputs exit with status 2 and an error message, without prompting or producing a sizing report.
 
-Slower than 60 min/in is not conventional territory in North Texas.
+A positive rate is accepted for arithmetic, not validated against a soil class, treatment method, site evaluation, or permit. Absorptive area includes concepts that differ from land footprint; no trench dimensions or sidewall credits are calculated.
 
-The script also computes lateral count and total linear feet given standard TCEQ trench dimensions (36" wide, 24" deep, 6 ft spacing, max 100 ft per lateral).
+## Python API
 
-## Service area
+```python
+from scripts.outwestseptic_drainfield_calc import OutWestSepticDrainfieldCalculator
 
-Out West Septic installs conventional gravity systems in Palo Pinto, Hood, Erath, Stephens, Young, Jack, and Eastland counties. Mineral Wells, Graford, Possum Kingdom Lake.
+report = OutWestSepticDrainfieldCalculator().calculate(
+    design_flow_gpd="300",
+    loading_rate_gpd_per_sqft="0.2",
+)
+print(report.absorption_area_sqft)  # 1500
+```
 
-## License
+Use named arguments. Integers, floats, decimal strings, and `decimal.Decimal` values are supported; use strings or Decimal to preserve supplied decimal precision. Booleans are rejected.
 
-MIT. See [LICENSE](./LICENSE).
+## What this cannot determine
 
----
+A site evaluation and applicable planning process must establish Q, Ra, and disposal-system suitability. The tool does not choose a treatment method or validate soil depth, restrictive layers, groundwater, slope, setbacks, local orders, trench geometry, construction, or approval.
 
-Out West Septic, outwestseptic.com, 940.452.0598, TCEQ OSSF Installer I OS0041298, Lone Camp, TX
+Read the [formula and source reference](wiki/Drainfield-Sizing-Reference.md) and [TCEQ system-selection guidance](https://www.tceq.texas.gov/permitting/ossf/ossfsystems.html) before interpreting the arithmetic.
+
+## Migration from the previous interface
+
+The positional `perc gpd` arguments, soil-series perc presets, `--list-soils`, and automatic trench-layout options were removed. The prior percolation-rate lookup had no support in the cited TCEQ method, and automatic geometry omitted required considerations. Old invocations intentionally fail; obtain explicit Q and Ra before using the new flags.
+
+The class name is retained, but `calculate` and `absorption_area_sqft` require named flow and rate arguments. The old geometry constructor and layout API are no longer supported.
+
+Seed issue/PR files that claimed unverified field experience or completed changes were removed.
+
+## Verify changes
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+Tests cover exact and non-integer ratios, decimal rounding boundaries, invalid API inputs, flow limits, extreme finite values, and command-line success and failure. GitHub Actions runs the suite on Python 3.10 and 3.13 when enabled.
+
+## Source status and license
+
+Reviewed against the [TCEQ 2023 adoption document](https://www.tceq.texas.gov/downloads/rules/adoptions/21030285_ado.pdf/@@download/file/21030285_ado.pdf#page=63) on 2026-10-18. This is a source-edition check, **not verification of the current consolidated rule**. TCEQ [warns that its rule PDFs are not current](https://www.tceq.texas.gov/rules/indxpdf.html) and directs readers to the Secretary of State. Recheck current and local requirements before project use.
+
+See the repository's existing [license reference](LICENSE).
